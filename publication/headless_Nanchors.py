@@ -12,6 +12,9 @@ import os
 import yaml
 import numpy as np
 import random
+import time
+
+start_time = time.time()
 
 import UWBsim
 from UWBsim.airframe.drone import Drone
@@ -20,14 +23,15 @@ from UWBsim.simulation import UWBSimulation, SimulationParams
 
 
 # Script settings
-runs_per_traj_file = 10
+runs_per_traj_file = 1
 mode = 'twr'
-data_folder = os.path.join(UWBsim.DATA_DIR, 'publication_run')
+data_folder = os.path.join(UWBsim.DATA_DIR)
 anchor_file = os.path.join(UWBsim.BASE_DIR, 'anchor_positions.yaml')
-
+publication_folder = os.path.dirname(os.path.realpath(__file__))
 
 # Set Estimator parameters
 params = SimulationParams()
+"""
 params.estimators.mhe.enable = True
 params.estimators.mhe.rate = 50
 params.estimators.mhe.N_max = 20
@@ -36,6 +40,7 @@ params.estimators.mhe.ransac_iterations = 10
 params.estimators.mhe.ransac_fraction = 0.4
 params.estimators.mhe.ransac_threshold = 1.7
 params.estimators.mhe.mu = 10
+"""
 params.estimators.ekf.enable = True
 params.estimators.ekf.rate = 100
 
@@ -44,12 +49,10 @@ params.drone.altitude_enable = True
 if mode == 'twr':
     n_anchors = [1, 2, 3, 4, 5, 6, 7, 8]
     params.ranging.rtype = RangingType.TWR
-    mhe_alphas = [0.02, 0.02, 0.02, 0.015, 0.015, 0.015, 0.015, 0.015]
     params.estimators.ekf.outlierThreshold = 1500
 elif mode == 'tdoa':
     n_anchors = [2, 3, 4, 5, 6, 7, 8]
     params.ranging.rtype = RangingType.TDOA
-    mhe_alphas = [0.02, 0.02, 0.015, 0.015, 0.01, 0.01, 0.01]
     params.estimators.ekf.outlierThreshold = 25
 
 with open(anchor_file) as f:
@@ -63,7 +66,8 @@ params.ranging.source = RangingSource.LOG
 
 
 # Create unique output file
-output_file = 'publication/{}_anchors.csv'.format(mode)
+output_file = os.path.join(publication_folder,
+'{}_anchors.csv'.format(mode))
 
 i = 1
 tmp = output_file
@@ -114,7 +118,7 @@ def data_callback(drone: Drone):
 with open(output_file, 'w') as f_out:
     print('Writing to: {}'.format(output_file))
     # Write output file header
-    f_out.write('log, anchors, run, mhe_tot, ekf_tot, mheX, mheY, mheZ, ekfX, \
+    f_out.write('log, anchors, run, ekf_tot, ekfX, \
         ekfY, ekfZ, logfile\n')
     # iterate through all logs
     traj_names = []
@@ -147,22 +151,24 @@ with open(output_file, 'w') as f_out:
        # Set Logfile for run
         params.drone.logfile = os.path.join(data_folder,f)
     
-        for idx, Na in enumerate(n_anchors): 
-            params.estimators.mhe.alpha = mhe_alphas[idx]
+        for idx, Na in enumerate(n_anchors):
+            print("idx =", idx, "Na =", Na, "n_anchors =", n_anchors)
+            #params.estimators.mhe.alpha = mhe_alphas[idx]
 
             for run in range(runs_per_traj_file):
                 params.ranging.anchor_enable = [False, False, False, False,
-                                                 False, False, False, False]
-                anchor_idx_en = random.sample(range(8), Na)
-                for a_idx in anchor_idx_en:
-                    params.ranging.anchor_enable[a_idx] = True
+                                                False, False, False, False]
 
+                #anchor_idx_en = random.sample(range(8), Na)
+                for a_idx in range(Na):
+                    params.ranging.anchor_enable[a_idx] = True
+                print(params.ranging.anchor_enable)
                 params.name = name + '_a' + str(Na) + '_r' + str(run)
                 # Reset error calculation
                 error_count = 0
-                mhe_error_sum2[0] = 0
-                mhe_error_sum2[1] = 0
-                mhe_error_sum2[2] = 0
+                #mhe_error_sum2[0] = 0
+                #mhe_error_sum2[1] = 0
+                #mhe_error_sum2[2] = 0
                 ekf_error_sum2[0] = 0
                 ekf_error_sum2[1] = 0
                 ekf_error_sum2[2] = 0
@@ -171,15 +177,16 @@ with open(output_file, 'w') as f_out:
                 sim = UWBSimulation(params, NotImplemented, data_callback)
                 try:
                     sim.start_sim()
-                    mheX = np.sqrt(mhe_error_sum2[0]/error_count)
-                    mheY = np.sqrt(mhe_error_sum2[1]/error_count)
-                    mheZ = np.sqrt(mhe_error_sum2[2]/error_count)
+                    #mheX = np.sqrt(mhe_error_sum2[0]/error_count)
+                    #mheY = np.sqrt(mhe_error_sum2[1]/error_count)
+                    #mheZ = np.sqrt(mhe_error_sum2[2]/error_count)
                     ekfX = np.sqrt(ekf_error_sum2[0]/error_count)
                     ekfY = np.sqrt(ekf_error_sum2[1]/error_count)
                     ekfZ = np.sqrt(ekf_error_sum2[2]/error_count)
                 except AssertionError:
                     # One of the estimators failed, try both individually
                     # MHE only
+                    """
                     params.estimators.ekf.enable = False
                     error_count = 0
                     mhe_error_sum2[0] = 0
@@ -200,7 +207,7 @@ with open(output_file, 'w') as f_out:
                     
                     finally:
                         params.estimators.ekf.enable = True
-                    
+                    """
                     # EKF only
                     params.estimators.mhe.enable = False
                     error_count = 0
@@ -224,12 +231,12 @@ with open(output_file, 'w') as f_out:
                         params.estimators.mhe.enable = True
 
                 # Calculate performance and write to output file
-                mhe_tot = np.sqrt(mheX**2 + mheY**2 + mheZ**2)
+                #mhe_tot = np.sqrt(mheX**2 + mheY**2 + mheZ**2)
                 ekf_tot = np.sqrt(ekfX**2 + ekfY**2 + ekfZ**2)
                 
-                f_out.write('{}, {}, {}, {:.3f}, {:.3f}, {:.3f}, {:.3f}, \
+                f_out.write('{}, {}, {}, \
                     {:.3f}, {:.3f}, {:.3f}, {:.3f}, {}\n'.format(
-                    name, Na, run, mhe_tot, ekf_tot, mheX, mheY, 
-                    mheZ, ekfX, ekfY, ekfZ, params.drone.logfile
+                    name, Na, run, ekf_tot, ekfX, ekfY, ekfZ, params.drone.logfile
                 ))
+                print("RUNTIME:", time.time()-start_time)
 

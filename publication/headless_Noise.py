@@ -19,9 +19,9 @@ from UWBsim.simulation import UWBSimulation, SimulationParams
 # Script settings
 mode = 'twr'
 runs_per_traj_file = 5
-data_folder = os.path.join(UWBsim.DATA_DIR, 'publication_run')
+data_folder = os.path.join(UWBsim.DATA_DIR)
 anchor_file = os.path.join(UWBsim.BASE_DIR, 'anchor_positions.yaml')
-
+publication_folder = os.path.dirname(os.path.realpath(__file__))
 
 # Set estimators parameters
 params = SimulationParams()
@@ -75,7 +75,8 @@ else:
 
 
 # Create unique output file
-output_file = 'publication/{}_ht_noise.csv'.format(mode)
+output_file = os.path.join(publication_folder,
+'{}_ht_noise.csv'.format(mode))
 
 i = 1
 tmp = output_file
