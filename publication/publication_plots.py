@@ -16,12 +16,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Set parameters for plot fonts
+"""
 plt.rcParams.update({
     "text.usetex": True,
     "font.family": "serif",
     "font.serif": ["Computer Modern Roman"],
 })
-
+"""
 def plot_heavytail(file_name):
     """ Plot the comparison of EKF and MHE with simulated heavy-tailed noise
     """

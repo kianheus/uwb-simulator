@@ -37,7 +37,7 @@ MIN_COV = 0.000001
 
 G = 9.81
 
-stdDev_initialPos_xy = 100
+stdDev_initialPos_xy = 5
 stdDev_initialPos_z = 1
 stdDev_initialVelocity = 0.01
 stdDev_initialAtt_rp = 0.01
@@ -123,6 +123,7 @@ class EKF:
         self.reset(initial_state)
         self.outlierThreshold = ekf_params.outlierThreshold
         self.method_time = []
+
 
     def reset(self, initial_state):
         """Resets the estimator to the initial state

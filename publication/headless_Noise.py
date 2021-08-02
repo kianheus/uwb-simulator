@@ -25,6 +25,7 @@ publication_folder = os.path.dirname(os.path.realpath(__file__))
 
 # Set estimators parameters
 params = SimulationParams()
+"""
 params.estimators.mhe.enable = True
 params.estimators.mhe.rate = 50
 params.estimators.mhe.N_max = 20
@@ -36,6 +37,7 @@ else:
 params.estimators.mhe.ransac_iterations = 10
 params.estimators.mhe.ransac_fraction = 0.4
 params.estimators.mhe.ransac_threshold = 1.7
+"""
 params.estimators.ekf.enable = True
 params.estimators.ekf.rate = 100
 
@@ -60,6 +62,7 @@ if mode=='twr':
     params.ranging.htg_lambda = 3.5
     params.ranging.htg_k = 2
     params.estimators.ekf.outlierThreshold = 1500
+    params.ranging.htg_scale = 0.2
 
 elif mode=='tdoa':
     params.ranging.interval = 0.1
@@ -68,6 +71,7 @@ elif mode=='tdoa':
     params.ranging.gauss_sigma = 0.3
     params.ranging.htc_gamma = 0.3
     params.estimators.ekf.outlierThreshold = 25
+    params.ranging.htc_ratio = 0.5
 
 else:
     print('Invalid mode')
@@ -91,7 +95,7 @@ with open(settings_file, 'w') as f:
     yaml.dump(params, f)
 
 # Global variables for error calculation
-mhe_error_sum2 = np.array([0.0,0.0,0.0])
+#mhe_error_sum2 = np.array([0.0,0.0,0.0])
 ekf_error_sum2 = np.array([0.0,0.0,0.0])
 error_count = 0
 
@@ -112,10 +116,12 @@ def data_callback(drone):
         
         error_count += 1
 
+        """
         if drone.estimator_isEnabled['mhe']:
             mhe_error_sum2[0] += (x - drone.state_estimate['mhe'].x[0])**2
             mhe_error_sum2[1] += (y - drone.state_estimate['mhe'].x[1])**2
             mhe_error_sum2[2] += (z - drone.state_estimate['mhe'].x[2])**2
+        """
 
         if drone.estimator_isEnabled['ekf']:
             ekf_error_sum2[0] += (x - drone.state_estimate['ekf'].x[0])**2
@@ -126,8 +132,7 @@ def data_callback(drone):
 with open(output_file, 'w') as f_out:
     print('Writing to {}'.format(output_file))
     # Write output file header
-    f_out.write('log, scale, run, mhe_tot, ekf_tot, mheX, mheY, mheZ, \
-                    ekfX, ekfY, ekfZ, logfile\n')
+    f_out.write('log, scale, run, ekf_tot, ekfX, ekfY, ekfZ, logfile\n')
     # iterate through all logs
     traj_names = []
     for f in os.listdir(data_folder):
@@ -155,9 +160,11 @@ with open(output_file, 'w') as f_out:
         params.drone.logfile = os.path.join(data_folder,f)
 
         if mode=='twr':
-            scale_range = [0.0, 0.25, 0.5, 0.75, 1.0, 1.25]
+            #scale_range = [0.0, 0.25, 0.5, 0.75, 1.0, 1.25]
+            scale_range = [1.0]
         else:
-            scale_range = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+            #scale_range = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+            scale_range = [1.0]
 
         for scale in scale_range:
             if mode =='twr':
@@ -169,9 +176,9 @@ with open(output_file, 'w') as f_out:
                 params.name = name + '_ht' + str(scale) + '_r' + str(run)
                 # Reset error calculation
                 error_count = 0
-                mhe_error_sum2[0] = 0
-                mhe_error_sum2[1] = 0
-                mhe_error_sum2[2] = 0
+                #mhe_error_sum2[0] = 0
+                #mhe_error_sum2[1] = 0
+                #mhe_error_sum2[2] = 0
                 ekf_error_sum2[0] = 0
                 ekf_error_sum2[1] = 0
                 ekf_error_sum2[2] = 0
@@ -180,14 +187,15 @@ with open(output_file, 'w') as f_out:
                 sim = UWBSimulation(params, NotImplemented, data_callback)
                 try:
                     sim.start_sim()
-                    mheX = np.sqrt(mhe_error_sum2[0]/error_count)
-                    mheY = np.sqrt(mhe_error_sum2[1]/error_count)
-                    mheZ = np.sqrt(mhe_error_sum2[2]/error_count)
+                    #mheX = np.sqrt(mhe_error_sum2[0]/error_count)
+                    #mheY = np.sqrt(mhe_error_sum2[1]/error_count)
+                    #mheZ = np.sqrt(mhe_error_sum2[2]/error_count)
                     ekfX = np.sqrt(ekf_error_sum2[0]/error_count)
                     ekfY = np.sqrt(ekf_error_sum2[1]/error_count)
                     ekfZ = np.sqrt(ekf_error_sum2[2]/error_count)
                 except AssertionError:
                     # One of the estimators failed, try both individually
+                    """
                     # MHE only
                     params.estimators.ekf.enable = False
                     error_count = 0
@@ -209,7 +217,7 @@ with open(output_file, 'w') as f_out:
                     
                     finally:
                         params.estimators.ekf.enable = True
-                    
+                    """
                     # EKF only
                     params.estimators.mhe.enable = False
                     error_count = 0
@@ -230,14 +238,14 @@ with open(output_file, 'w') as f_out:
                         ekfZ = np.inf
 
                     finally:
-                        params.estimators.mhe.enable = True
+                        #params.estimators.mhe.enable = True
+                        pass
 
-                mhe_tot = np.sqrt(mheX**2 + mheY**2 + mheZ**2)
+                #mhe_tot = np.sqrt(mheX**2 + mheY**2 + mheZ**2)
                 ekf_tot = np.sqrt(ekfX**2 + ekfY**2 + ekfZ**2)
                 
-                f_out.write('{}, {}, {}, {:.3f}, {:.3f}, {:.3f}, {:.3f}, \
+                f_out.write('{}, {}, {}, \
                     {:.3f}, {:.3f}, {:.3f}, {:.3f}, {}\n'.format(
-                    name, scale, run, mhe_tot, ekf_tot, mheX, mheY, 
-                    mheZ, ekfX, ekfY, ekfZ, params.drone.logfile
+                    name, scale, run, ekf_tot, ekfX, ekfY, ekfZ, params.drone.logfile
                 ))
 

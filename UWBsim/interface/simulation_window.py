@@ -281,7 +281,7 @@ class SimulationWorker(QtCore.QRunnable):
         
         Emits finished signal when simulation is done
         """
-        ptvsd.debug_this_thread() 
+        #ptvsd.debug_this_thread()
         sim_instance = UWBSimulation(self.params, self.query_stop_flag, 
             self.data_callback_on_this_thread, **self.kwargs)
 

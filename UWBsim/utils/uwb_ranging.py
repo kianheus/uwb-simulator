@@ -37,8 +37,8 @@ class RangingParams(yaml.YAMLObject):
     yaml_tag = u'!RangingParams'
     def __init__(self, source=int(RangingSource.GENERATE_HT_CAUCHY), rtype=int(RangingType.TWR), 
                     anchor_positions=[[0.0,0.0,0.0]], anchor_enable=[False], 
-                    interval=0.01, gauss_sigma=0.05, htc_gamma=0.1, htc_ratio=1.0,
-                    htg_mu=0.1, htg_lambda=3.5, htg_k=2, htg_scale=1, outlier_chance=0.0):
+                    interval=0.01, gauss_sigma=0.3, htc_gamma=0.3, htc_ratio=1.0,
+                    htg_mu=0.1, htg_lambda=3.5, htg_k=2, htg_scale=1, outlier_chance=0.0, simulation_type = 0, N_helpers = 0, interval_inter = 0.01):
         """ Initializes RangingParams
 
         Args:
@@ -60,13 +60,18 @@ class RangingParams(yaml.YAMLObject):
             htg_scale: Factor of heavy-tailedness of the Gamma-based heavy-tailed
                     noise model (0:Gaussian, >0: Heavy-tailed)
             outlier_chance: additional chance for generating outliers
+            simulation_type: Type of simulation (making helper drones (0), or using helper drones (1))
         """
         self.source = source
         self.rtype = rtype
         self.anchor_positions = anchor_positions
         self.anchor_enable = anchor_enable
-        
+
+        self.N_helpers = N_helpers
+
         self.interval = interval
+        self.interval_inter = interval_inter
+
         
         # Gaussian Params
         self.gauss_sigma = gauss_sigma
@@ -86,6 +91,8 @@ class RangingParams(yaml.YAMLObject):
 
         # Outlier Chance
         self.outlier_chance = outlier_chance
+
+        self.simulation_type = simulation_type
 
     def __repr__(self):
         return "%s(source=%d, rtype=%d, anchor_positions=%r, anchor_enable=%r, interval=%r, \
@@ -107,7 +114,11 @@ class UWBGenerator:
             self.N_anchors = len(self.anchor_enable)
         else:
             self.N_anchors = 0
+
+
+
         self.interval = params.interval
+        self.interval_inter = params.interval_inter
         self.interval_diff = 0.1*self.interval # add randomness to intervals(between 10% longer and 10% shorter)
         # Gauss
         self.gauss_sigma = params.gauss_sigma
@@ -136,6 +147,8 @@ class UWBGenerator:
                 for j in range(self.N_anchors):
                     self.next_meas[i][j] += self.interval + np.random.uniform(-self.interval_diff, self.interval_diff)
 
+        self.next_meas_inter = np.zeros(params.N_helpers)
+
 
 
     def generate_twr(self, position, anchor_id, time):
@@ -151,6 +164,15 @@ class UWBGenerator:
             return dataTypes.TWR_meas(a, anchor_id, d, self.gauss_sigma, time)
         else:
             return None
+
+    def generate_twr_inter(self, position, helper_pos, helper_id, time):
+        if time >= self.next_meas_inter[helper_id]:
+            self.next_meas_inter[helper_id] += self.interval_inter + np.random.uniform(-self.interval_diff, self.interval_diff)
+            dx = position[0] - helper_pos[4]
+            dy = position[1] - helper_pos[5]
+            dz = position[2] - helper_pos[6]
+            d = math.sqrt(dx**2 + dy**2 + dz**2) + self.noise()
+            return dataTypes.TWR_meas(helper_pos[1:4], helper_id, d, self.gauss_sigma, time)
 
     def generate_tdoa(self, position, anchor0_id, anchor1_id, time):
         if (self.anchor_enable[anchor0_id]) and (self.anchor_enable[anchor1_id]) and (time >= self.next_meas[anchor0_id][anchor1_id]):

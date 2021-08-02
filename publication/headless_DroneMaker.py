@@ -13,6 +13,7 @@ import yaml
 import numpy as np
 import random
 import time
+import csv
 
 start_time = time.time()
 
@@ -22,24 +23,15 @@ from UWBsim.utils.uwb_ranging import RangingType, RangingSource
 from UWBsim.simulation import UWBSimulation, SimulationParams
 
 # Script settings
-runs_per_traj_file = 10
-mode = 'twr'
+runs_per_traj_file = 4
+mode = 'tdoa'
 data_folder = os.path.join(UWBsim.DATA_DIR)
 anchor_file = os.path.join(UWBsim.BASE_DIR, 'anchor_positions.yaml')
 publication_folder = os.path.dirname(os.path.realpath(__file__))
 
 # Set Estimator parameters
 params = SimulationParams()
-"""
-params.estimators.mhe.enable = True
-params.estimators.mhe.rate = 50
-params.estimators.mhe.N_max = 20
-params.estimators.mhe.iterations = 1
-params.estimators.mhe.ransac_iterations = 10
-params.estimators.mhe.ransac_fraction = 0.4
-params.estimators.mhe.ransac_threshold = 1.7
-params.estimators.mhe.mu = 10
-"""
+
 params.estimators.ekf.enable = True
 params.estimators.ekf.rate = 100
 
@@ -61,7 +53,9 @@ with open(anchor_file) as f:
         i = int(key)
         params.ranging.anchor_positions.append([pos['x'], pos['y'], pos['z']])
 
-params.ranging.source = RangingSource.LOG
+params.ranging.source = RangingSource.GENERATE_HT_CAUCHY
+params.ranging.simulation_type = 0
+
 
 # Create unique output file
 output_file = os.path.join(publication_folder,
@@ -76,6 +70,11 @@ output_file = os.path.join(publication_folder_hip, 'runs_data.csv'.format(mode))
 drone_log_file_directory = os.path.join(publication_folder_hip, "DronePosLog")
 
 os.makedirs(publication_folder_hip)
+"""
+temp_log_reader = csv.DictReader(open(os.path.join(data_folder, "2021-02-12+09_41_16+kalman+twr+cyberzoo+optitrackstate+triangle.csv"), 'r', newline=''), skipinitialspace=True)
+log_line_counter = 10 * sum(1 for row in temp_log_reader)
+print(log_line_counter)
+"""
 
 # Save parameters for later reference
 settings_file = output_file.split('.')[0] + '_settings.yaml'
@@ -86,7 +85,7 @@ with open(settings_file, 'w') as f:
 # mhe_error_sum2 = np.array([0.0,0.0,0.0])
 ekf_error_sum2 = np.array([0.0, 0.0, 0.0])
 error_count = 0
-drone_full_x_log = np.empty((39175, 7))
+drone_full_x_log = np.empty((60000, 7))
 
 
 ###drone_full_x_log2 = np.empty((0,4))
@@ -109,21 +108,10 @@ def data_callback(drone: Drone):
 
         drone_flight_info = np.array(
             [np.hstack((drone.time, drone.state_estimate["ekf"].x[0:3], drone.state_true.x[0:3]))])
-        ###print("EKF X", drone.state_estimate["ekf"].x)
-        ###print(np.transpose(drone.estimators["ekf"].xi[0:3]))
         drone_full_x_log[error_count] = drone_flight_info
-        # drone_full_x_log = np.append(drone_full_x_log, drone_flight_info, axis=0)
-        #######print(drone_full_x_log[-1])
-        ###drone_full_x_log2 = np.append(drone_full_x_log2, np.array(drone.time, np.transpose(drone.estimators["ekf"].xi[0:3])), axis=0)
 
         error_count += 1
 
-        """
-        if drone.estimator_isEnabled['mhe']:
-            mhe_error_sum2[0] += (x - drone.state_estimate['mhe'].x[0])**2
-            mhe_error_sum2[1] += (y - drone.state_estimate['mhe'].x[1])**2
-            mhe_error_sum2[2] += (z - drone.state_estimate['mhe'].x[2])**2
-        """
         if drone.estimator_isEnabled['ekf']:
             ekf_error_sum2[0] += (x - drone.state_estimate['ekf'].x[0]) ** 2
             ekf_error_sum2[1] += (y - drone.state_estimate['ekf'].x[1]) ** 2
@@ -172,6 +160,11 @@ with open(output_file, 'w') as f_out:
             # params.estimators.mhe.alpha = mhe_alphas[idx]
 
             for run in range(runs_per_traj_file):
+                drone_offset = [2 * np.cos((run) * 2*np.pi/(runs_per_traj_file)), 2 * np.sin((run) * 2*np.pi/(runs_per_traj_file)), 0]
+                print("drone offset", drone_offset)
+                params.drone.offset = drone_offset
+
+
                 params.ranging.anchor_enable = [True, False, True, False,
                                                 False, True, False, False]
 
@@ -181,52 +174,23 @@ with open(output_file, 'w') as f_out:
                 params.name = name + '_a' + str(Na) + '_r' + str(run)
                 # Reset error calculation
                 error_count = 0
-                # mhe_error_sum2[0] = 0
-                # mhe_error_sum2[1] = 0
-                # mhe_error_sum2[2] = 0
                 ekf_error_sum2[0] = 0
                 ekf_error_sum2[1] = 0
                 ekf_error_sum2[2] = 0
 
                 # Reset drone x array
-                drone_full_x_log = np.empty((39175, 7))
-                ###drone_full_x_log2 = np.empty((0,4))
+                drone_full_x_log = np.empty((60000, 7))
 
                 # Run simulation
                 sim = UWBSimulation(params, NotImplemented, data_callback)
                 try:
                     sim.start_sim()
-                    # mheX = np.sqrt(mhe_error_sum2[0]/error_count)
-                    # mheY = np.sqrt(mhe_error_sum2[1]/error_count)
-                    # mheZ = np.sqrt(mhe_error_sum2[2]/error_count)
                     ekfX = np.sqrt(ekf_error_sum2[0] / error_count)
                     ekfY = np.sqrt(ekf_error_sum2[1] / error_count)
                     ekfZ = np.sqrt(ekf_error_sum2[2] / error_count)
                 except AssertionError:
                     # One of the estimators failed, try both individually
-                    # MHE only
-                    """
-                    params.estimators.ekf.enable = False
-                    error_count = 0
-                    mhe_error_sum2[0] = 0
-                    mhe_error_sum2[1] = 0
-                    mhe_error_sum2[2] = 0
-                    try:
-                        sim = UWBSimulation(params, NotImplemented, 
-                                data_callback)
-                        sim.start_sim()
-                        mheX = np.sqrt(mhe_error_sum2[0]/error_count)
-                        mheY = np.sqrt(mhe_error_sum2[1]/error_count)
-                        mheZ = np.sqrt(mhe_error_sum2[2]/error_count)
 
-                    except AssertionError:
-                        mheX = np.inf
-                        mheY = np.inf
-                        mheZ = np.inf
-                    
-                    finally:
-                        params.estimators.ekf.enable = True
-                    """
                     # EKF only
                     params.estimators.mhe.enable = False
                     error_count = 0
@@ -259,9 +223,11 @@ with open(output_file, 'w') as f_out:
                     name, Na, run, ekf_tot, ekfX, ekfY, ekfZ, params.drone.logfile
                 ))
 
+                drone_full_x_log = drone_full_x_log[~np.all(drone_full_x_log == 0, axis=1)]
+
                 np.savetxt(os.path.join(drone_log_file_directory + str(run) + ".csv"), drone_full_x_log,
                            header="time, estX, estY, estZ, trueX, trueY, trueZ", comments="", delimiter=",")
-                ###np.save(os.path.join("C:\\Users\\Kian Heus\\PycharmProjects\\numpytester\\savehere",
-                ###"x_array" + str(Na) + str(run) + "BOO"), drone_full_x_log2)
 
                 print("RUNTIME:", time.time() - start_time)
+                print(sim.drone1.totalsauce, sim.drone1.time)
+

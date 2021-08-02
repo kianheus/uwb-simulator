@@ -111,6 +111,7 @@ class UWBSimulation:
 
         step_counter = 0
         while True:
+            sim_time = 0
             sim_time = step_counter * self.time_step
             step_counter += 1
 
@@ -119,9 +120,10 @@ class UWBSimulation:
                 print("{}: [{:2.1f}s]".format(self.params.name, sim_time), end='\r')
 
             if not self.drone1.step(sim_time):
+                print("\n")
                 print("{}: DONE             ".format(self.params.name))
+                #Save run information
                 break
-
             self.data_callback(self.drone1)
             if self.stop_flag():
                 print("{}: CANCELLED         ".format(self.params.name))

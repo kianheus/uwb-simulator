@@ -22,24 +22,14 @@ from UWBsim.utils.uwb_ranging import RangingType, RangingSource
 from UWBsim.simulation import UWBSimulation, SimulationParams
 
 # Script settings
-runs_per_traj_file = 10
-mode = 'twr'
+runs_per_traj_file = 1
+mode = 'tdoa'
 data_folder = os.path.join(UWBsim.DATA_DIR)
 anchor_file = os.path.join(UWBsim.BASE_DIR, 'anchor_positions.yaml')
 publication_folder = os.path.dirname(os.path.realpath(__file__))
 
 # Set Estimator parameters
 params = SimulationParams()
-"""
-params.estimators.mhe.enable = True
-params.estimators.mhe.rate = 50
-params.estimators.mhe.N_max = 20
-params.estimators.mhe.iterations = 1
-params.estimators.mhe.ransac_iterations = 10
-params.estimators.mhe.ransac_fraction = 0.4
-params.estimators.mhe.ransac_threshold = 1.7
-params.estimators.mhe.mu = 10
-"""
 params.estimators.ekf.enable = True
 params.estimators.ekf.rate = 100
 
@@ -62,6 +52,8 @@ with open(anchor_file) as f:
         params.ranging.anchor_positions.append([pos['x'], pos['y'], pos['z']])
 
 params.ranging.source = RangingSource.LOG
+params.ranging.simulation_type = 1
+
 
 # Create unique output file
 output_file = os.path.join(publication_folder,
@@ -86,7 +78,7 @@ with open(settings_file, 'w') as f:
 # mhe_error_sum2 = np.array([0.0,0.0,0.0])
 ekf_error_sum2 = np.array([0.0, 0.0, 0.0])
 error_count = 0
-drone_full_x_log = np.empty((39175, 7))
+drone_full_x_log = np.empty((60000, 7))
 
 
 ###drone_full_x_log2 = np.empty((0,4))
@@ -189,7 +181,7 @@ with open(output_file, 'w') as f_out:
                 ekf_error_sum2[2] = 0
 
                 # Reset drone x array
-                drone_full_x_log = np.empty((39175, 7))
+                drone_full_x_log = np.empty((60000, 7))
                 ###drone_full_x_log2 = np.empty((0,4))
 
                 # Run simulation
@@ -258,6 +250,8 @@ with open(output_file, 'w') as f_out:
                     {:.5f}, {:.4f}, {:.4f}, {:.4f}, {}\n'.format(
                     name, Na, run, ekf_tot, ekfX, ekfY, ekfZ, params.drone.logfile
                 ))
+
+                drone_full_x_log = drone_full_x_log[~np.all(drone_full_x_log == 0, axis=1)]
 
                 np.savetxt(os.path.join(drone_log_file_directory + str(run) + ".csv"), drone_full_x_log,
                            header="time, estX, estY, estZ, trueX, trueY, trueZ", comments="", delimiter=",")
