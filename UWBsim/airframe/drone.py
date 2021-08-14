@@ -162,6 +162,10 @@ class Drone:
         print("N_helpers", p_ranging_inter.N_helpers)
         self.uwb_gen_inter = UWBGenerator(p_ranging_inter)
         self.inter_history = [[] for _ in range(p_ranging_inter.N_helpers)]
+        self.inter_history_saver = [[[],[]] for _ in range(p_ranging_inter.N_helpers)]
+        self.inter_history_saver = np.ndarray((len(range(p_ranging_inter.N_helpers)), 2, 10000))
+        self.inter_history_counter = np.ndarray((4,1))
+
 
         if self.logfile is None:
             # TODO: implement fully simulated drone
@@ -623,22 +627,29 @@ class Drone:
                 self.tdoa_history[i][j].pop(0)
         return stdDev
 
-    def _get_meas_stdv_inter(self, measurement):
+    def _get_meas_stdv_inter(self, measurement, index):
 
-        i = measurement.anchor_id
+        i = index
         self.inter_history[i].append(measurement.distance)
+
         if len(self.inter_history[i]) > 5:
             stdDev = np.std(self.inter_history[i])
         else:
             stdDev = 0.2
         if len(self.inter_history[i]) > 10:
             self.inter_history[i].pop(0)
+        #if stdDev < 0.05:
+        #    print("Small stdDev, t =", self.time)
+        #    stdDev = 0.05
+
+        self.inter_history_saver[i, :, int(self.inter_history_counter[i])] = [self.time, stdDev]
+        self.inter_history_counter[i] += 1
         return(stdDev)
 
     def _get_inter_drone_meas(self, index):
         helper_pos = self.helper_drone_data[index]
         twr_inter = self.uwb_gen_inter.generate_twr_inter(self.state_true.x, helper_pos, index, self.time)
         if twr_inter is not None:
-            twr_inter.stdDev = self._get_meas_stdv_inter(twr_inter)
-            twr_inter.stdDev = 0.2
+            twr_inter.stdDev = self._get_meas_stdv_inter(twr_inter, index)
+            #twr_inter.stdDev = 0.2
         return twr_inter
