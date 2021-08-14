@@ -172,6 +172,7 @@ class UWBGenerator:
             dy = position[1] - helper_pos[5]
             dz = position[2] - helper_pos[6]
             d = math.sqrt(dx**2 + dy**2 + dz**2) + self.noise()
+            #print("generate info", helper_pos[1:7], helper_id, position[0:3])
             return dataTypes.TWR_meas(helper_pos[1:4], helper_id, d, self.gauss_sigma, time)
 
     def generate_tdoa(self, position, anchor0_id, anchor1_id, time):

@@ -166,7 +166,7 @@ with open(output_file, 'w') as f_out:
 
 
                 params.ranging.anchor_enable = [True, False, True, False,
-                                                False, True, False, False]
+                                                False, True, False, True]
 
                 # anchor_idx_en = random.sample(range(8), Na)
                 # for a_idx in range(Na):
@@ -229,5 +229,5 @@ with open(output_file, 'w') as f_out:
                            header="time, estX, estY, estZ, trueX, trueY, trueZ", comments="", delimiter=",")
 
                 print("RUNTIME:", time.time() - start_time)
-                print(sim.drone1.totalsauce, sim.drone1.time)
+
 

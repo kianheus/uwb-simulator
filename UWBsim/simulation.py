@@ -120,11 +120,20 @@ class UWBSimulation:
                 print("{}: [{:2.1f}s]".format(self.params.name, sim_time), end='\r')
 
             if not self.drone1.step(sim_time):
+                #Save run information
                 print("\n")
                 print("{}: DONE             ".format(self.params.name))
-                #Save run information
+                """
+                np.set_printoptions(threshold=np.inf)
+                print(self.drone1.totalsauce)
+                print("totalsauce length", len(self.drone1.totalsauce))
+                print("count02", self.drone1.count02)
+                print("count05", self.drone1.count05)
+                print("count25", self.drone1.count25)
+                """
                 break
-            self.data_callback(self.drone1)
+            if (100*sim_time)%1==0:
+                self.data_callback(self.drone1)
             if self.stop_flag():
                 print("{}: CANCELLED         ".format(self.params.name))
                 break

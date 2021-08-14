@@ -9,10 +9,10 @@ import numpy as np
 import os
 
     
-
+DataPathBase = os.path.join("C:\\Users\\Kian Heus\\Documents\\GitHub\\uwb-simulator\\publication\\tdoa24")
 for i in range(1):
     print("Plot number:", i)
-    DataPath = os.path.join("C:\\Users\\Kian Heus\\Documents\\GitHub\\uwb-simulator\\publication\\tdoa7", "DronePosLog" + str(i) + ".csv")
+    DataPath = os.path.join(DataPathBase, "DronePosLog" + str(i) + ".csv")
     PlotDataReader = csv.reader(open(DataPath, "r"))
 
     Data_Line = next(PlotDataReader)
@@ -46,4 +46,12 @@ for i in range(1):
     ax4.legend()
 
     plt.legend()
+
+savedir = DataPathBase
+j = 0
+while os.path.isfile(os.path.join(savedir, "fig" + str(j) + ".png")):
+    j += 1
+    print("hi", j)
+print(j)
+plt.savefig(os.path.join(savedir, "fig" + str(j)))
 plt.show()

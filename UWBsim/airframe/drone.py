@@ -93,7 +93,6 @@ class Drone:
             p_estimators: Parameters and configuration of the estimators
             p_ranging: Parameters and configuration of the UWB ranging
         """
-        self.totalsauce = 0
         self.time = 0.0
         self.next_step = 0.0
 
@@ -146,12 +145,14 @@ class Drone:
 
         self.helper_readers = []
         self.helper_drone_data = np.empty((4, 7))
+        self.next_helper_drone_data = np.empty((4, 7))
+
 
         if self.simulation_type == 1:
-            for f in os.listdir("C:\\Users\\Kian Heus\\Documents\\GitHub\\uwb-simulator\\publication\\tdoa0"):
+            for f in os.listdir("C:\\Users\\Kian Heus\\Documents\\GitHub\\uwb-simulator\\publication\\tdoa15"):
                 if "DronePosLog" in f:
                     self.helper_readers.append(csv.DictReader(open(
-                        os.path.join("C:\\Users\\Kian Heus\\Documents\\GitHub\\uwb-simulator\\publication\\tdoa0", f), 'r',
+                        os.path.join("C:\\Users\\Kian Heus\\Documents\\GitHub\\uwb-simulator\\publication\\tdoa15", f), 'r',
                                      newline=''), skipinitialspace=True))
 
         #Set parameters for inter-drone ranging
@@ -160,6 +161,7 @@ class Drone:
         p_ranging_inter.interval_inter = 1/90
         print("N_helpers", p_ranging_inter.N_helpers)
         self.uwb_gen_inter = UWBGenerator(p_ranging_inter)
+        self.inter_history = [[] for _ in range(p_ranging_inter.N_helpers)]
 
         if self.logfile is None:
             # TODO: implement fully simulated drone
@@ -188,6 +190,11 @@ class Drone:
             self.log_data["otY"] += float(self.offset[1])
             self.log_data["otZ"] += float(self.offset[2])
             self.t0 = self.log_data['timeTick']
+
+            for index, reader in enumerate(self.helper_readers):
+                self.helper_drone_data[index] = np.array(list(float(i) for i in next(reader).values()))
+                self.next_helper_drone_data[index] = np.array(list(float(i) for i in next(reader).values()))
+
 
     def __exit__(self, type, value, traceback):
         self._stop()
@@ -275,8 +282,6 @@ class Drone:
             if self.use_log:
                 if sim_time >= (self.next_data['timeTick'] - self.t0) / 1000:
                     self.log_data = self.next_data
-                    for index, reader in enumerate(self.helper_readers):
-                        self.helper_drone_data[index] = np.array(list(float(i) for i in next(reader).values()))
                     try:
                         self.next_data = self._logline_to_data(next(self.logreader))
                         self.next_data["otX"] += self.offset[0]
@@ -284,7 +289,13 @@ class Drone:
                         self.next_data["otZ"] += self.offset[2]
                     except (StopIteration, TypeError, ValueError):
                         self.running = False
-
+                if sim_time > (self.next_helper_drone_data[0][0]):
+                    self.helper_drone_data = self.next_helper_drone_data
+                    for index, reader in enumerate(self.helper_readers):
+                        try:
+                            self.next_helper_drone_data[index] = np.array(list(float(i) for i in next(reader).values()))
+                        except (StopIteration):
+                            self.running = False
                 self._step_groundtruth_log(self.log_data)
                 m = self._get_measurements_log((self.log_data))
                 self._step_estimators(m)
@@ -468,7 +479,7 @@ class Drone:
                 if key in log_data:
                     dist = log_data[key]
                     if dist != self.last_uwb[anchor_id]:
-                        self.totalsauce += 1
+                        #self.totalsauce += 1
                         self.last_uwb[anchor_id] = dist
                         twr = TWR_meas(self.anchor_pos[anchor_id],
                                        anchor_id, dist, timestamp=self.time)
@@ -505,7 +516,6 @@ class Drone:
                 if key in log_data:
                     distDiff = log_data[key]
                     if distDiff != self.last_uwb[anchor_idA][anchor_idB]:
-                        self.totalsauce += 1
                         self.last_uwb[anchor_idA][anchor_idB] = distDiff
                         tdoa = TDOA_meas(self.anchor_pos[anchor_idA],
                                          self.anchor_pos[anchor_idB], anchor_idA, anchor_idB,
@@ -613,8 +623,22 @@ class Drone:
                 self.tdoa_history[i][j].pop(0)
         return stdDev
 
+    def _get_meas_stdv_inter(self, measurement):
+
+        i = measurement.anchor_id
+        self.inter_history[i].append(measurement.distance)
+        if len(self.inter_history[i]) > 5:
+            stdDev = np.std(self.inter_history[i])
+        else:
+            stdDev = 0.2
+        if len(self.inter_history[i]) > 10:
+            self.inter_history[i].pop(0)
+        return(stdDev)
+
     def _get_inter_drone_meas(self, index):
         helper_pos = self.helper_drone_data[index]
-
         twr_inter = self.uwb_gen_inter.generate_twr_inter(self.state_true.x, helper_pos, index, self.time)
+        if twr_inter is not None:
+            twr_inter.stdDev = self._get_meas_stdv_inter(twr_inter)
+            twr_inter.stdDev = 0.2
         return twr_inter
