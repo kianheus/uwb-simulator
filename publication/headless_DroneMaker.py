@@ -23,7 +23,7 @@ from UWBsim.utils.uwb_ranging import RangingType, RangingSource
 from UWBsim.simulation import UWBSimulation, SimulationParams
 
 # Script settings
-runs_per_traj_file = 4
+N_helpers = 4
 mode = 'tdoa'
 data_folder = os.path.join(UWBsim.DATA_DIR)
 anchor_file = os.path.join(UWBsim.BASE_DIR, 'anchor_positions.yaml')
@@ -61,20 +61,8 @@ params.ranging.simulation_type = 0
 output_file = os.path.join(publication_folder,
                            '{}_anchors.csv'.format(mode))
 
-i = 0
-publication_folder_hip = os.path.join(publication_folder, str(mode) + str(i))
-while os.path.isdir(publication_folder_hip):
-    publication_folder_hip = os.path.join(publication_folder, str(mode) + str(i))
-    i += 1
-output_file = os.path.join(publication_folder_hip, 'runs_data.csv'.format(mode))
-drone_log_file_directory = os.path.join(publication_folder_hip, "DronePosLog")
 
-os.makedirs(publication_folder_hip)
-"""
-temp_log_reader = csv.DictReader(open(os.path.join(data_folder, "2021-02-12+09_41_16+kalman+twr+cyberzoo+optitrackstate+triangle.csv"), 'r', newline=''), skipinitialspace=True)
-log_line_counter = 10 * sum(1 for row in temp_log_reader)
-print(log_line_counter)
-"""
+
 
 # Save parameters for later reference
 settings_file = output_file.split('.')[0] + '_settings.yaml'
@@ -135,7 +123,7 @@ with open(output_file, 'w') as f_out:
 
         # Create human readable name for trajectories
         name = f.split('.')[0]
-        name = name.split('+')[-1]
+        name = name.split('_')[-1]
         if 'twr' in f:
             name = 'twr_' + name
         elif 'tdoa' in f:
@@ -155,15 +143,26 @@ with open(output_file, 'w') as f_out:
         params.drone.logfile = os.path.join(data_folder, f)
 
         # for idx, Na in enumerate(n_anchors):
-        for Na in range(3, 4, 1):
+        for Na in range(4, 5, 1):
+
+            i = 0
+            publication_folder_hip = os.path.join(publication_folder, "anchors_" + str(Na) + "_helpers_" + str(
+                N_helpers) + "_run_" + str(i))
+            while os.path.isdir(publication_folder_hip):
+                publication_folder_hip = os.path.join(publication_folder, str(mode) + str(i))
+                i += 1
+            output_file = os.path.join(publication_folder_hip, 'runs_data.csv'.format(mode))
+            drone_log_file_directory = os.path.join(publication_folder_hip, "DronePosLog")
+
+            os.makedirs(publication_folder_hip)
+
             print("Na =", Na, "n_anchors =", n_anchors)
             # params.estimators.mhe.alpha = mhe_alphas[idx]
 
-            for run in range(runs_per_traj_file):
-                drone_offset = [2 * np.cos((run) * 2*np.pi/(runs_per_traj_file)), 2 * np.sin((run) * 2*np.pi/(runs_per_traj_file)), 0]
+            for helper in range(N_helpers):
+                drone_offset = [2 * np.cos((helper) * 2*np.pi/(N_helpers)), 2 * np.sin((helper) * 2*np.pi/(N_helpers)), 0]
                 print("drone offset", drone_offset)
                 params.drone.offset = drone_offset
-
 
                 params.ranging.anchor_enable = [True, False, True, False,
                                                 False, True, False, True]
@@ -171,7 +170,7 @@ with open(output_file, 'w') as f_out:
                 # anchor_idx_en = random.sample(range(8), Na)
                 # for a_idx in range(Na):
                 #    params.ranging.anchor_enable[a_idx] = True
-                params.name = name + '_a' + str(Na) + '_r' + str(run)
+                params.name = name + '_a' + str(Na) + '_r' + str(helper)
                 # Reset error calculation
                 error_count = 0
                 ekf_error_sum2[0] = 0
@@ -220,14 +219,16 @@ with open(output_file, 'w') as f_out:
 
                 f_out.write('{}, {}, {}, \
                     {:.5f}, {:.4f}, {:.4f}, {:.4f}, {}\n'.format(
-                    name, Na, run, ekf_tot, ekfX, ekfY, ekfZ, params.drone.logfile
+                    name, Na, helper, ekf_tot, ekfX, ekfY, ekfZ, params.drone.logfile
                 ))
 
                 drone_full_x_log = drone_full_x_log[~np.all(drone_full_x_log == 0, axis=1)]
 
-                np.savetxt(os.path.join(drone_log_file_directory + str(run) + ".csv"), drone_full_x_log,
+                np.savetxt(os.path.join(drone_log_file_directory + str(helper) + ".csv"), drone_full_x_log,
                            header="time, estX, estY, estZ, trueX, trueY, trueZ", comments="", delimiter=",")
 
                 print("RUNTIME:", time.time() - start_time)
+
+
 
 

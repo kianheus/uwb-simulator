@@ -171,7 +171,7 @@ class UWBGenerator:
             dx = position[0] - helper_pos[4]
             dy = position[1] - helper_pos[5]
             dz = position[2] - helper_pos[6]
-            d = math.sqrt(dx**2 + dy**2 + dz**2) + self.noise()
+            d = math.sqrt(dx**2 + dy**2 + dz**2) + self.noise_inter()
             #print("generate info", helper_pos[1:7], helper_id, position[0:3])
             return dataTypes.TWR_meas(helper_pos[1:4], helper_id, d, self.gauss_sigma, time)
 
@@ -196,6 +196,19 @@ class UWBGenerator:
                                             dd, self.gauss_sigma, time)
         else:
             return None
+
+    def noise_inter(self):
+        CDF_limit = (2 - self.cauchy_alpha) * 0.5
+        tmp = random.random()
+        if tmp < CDF_limit:
+            # Gaussian CDF: F(x) = (1/2) * (1 + erf( (x-mu)/sqrt(2*sig^2) ))
+            return math.sqrt(2 * self.gauss_sigma ** 2) * scipy.special.erfinv(
+                2 * tmp / (2 - self.cauchy_alpha) - 1)  # pylint: disable=no-member
+        else:
+            # Cauchy CDF: F(x) = (1/pi) * arctan((x-x0)/gamma) + 1/2
+            # Because of scaling with alpha (Area under CDF no longer 1), need to also start from -inf and then flip
+            tmp = 1 - tmp
+            return -self.cauchy_gamma * math.tan(math.pi * (tmp / self.cauchy_alpha - 0.5))
     
     def noise(self):
         if self.params.source == RangingSource.GENERATE_GAUSS:

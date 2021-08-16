@@ -10,6 +10,7 @@ Classes:
 
 import yaml
 import numpy as np
+import matplotlib.pyplot as plt
 
 from UWBsim.estimators import EstimatorParams
 from UWBsim.airframe.drone import Drone, DroneParams
@@ -123,13 +124,13 @@ class UWBSimulation:
                 #Save run information
                 print("\n")
                 print("{}: DONE             ".format(self.params.name))
+
                 """
-                np.set_printoptions(threshold=np.inf)
-                print(self.drone1.totalsauce)
-                print("totalsauce length", len(self.drone1.totalsauce))
-                print("count02", self.drone1.count02)
-                print("count05", self.drone1.count05)
-                print("count25", self.drone1.count25)
+                for k in range(len(self.drone1.helper_readers)):
+                    self.drone1.inter_history_saver[k,:,self.drone1.inter_history_saver[k,0,:] == 0] = np.nan
+                    plt.plot(self.drone1.inter_history_saver[k][0], self.drone1.inter_history_saver[k][1])
+
+                plt.show()
                 """
                 break
             if (100*sim_time)%1==0:

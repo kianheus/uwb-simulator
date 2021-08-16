@@ -40,7 +40,7 @@ class DroneParams(yaml.YAMLObject):
 
     def __init__(self, mass=0.03, K_aero=[0.15, 0.15, 0.0], frame_diag=0.15,
                  frame_h=0.02, initial_pos=[0.0, 0.0, 0.0],
-                 altitude_enable=True, logfile=None, offset=[0, 0, 0]):
+                 altitude_enable=True, logfile=None, offset=[0, 0, 0], helper_file=None):
         """ Initializes DroneParams
 
         Args:
@@ -61,6 +61,7 @@ class DroneParams(yaml.YAMLObject):
         self.altitude_enable = altitude_enable
         self.logfile = logfile
         self.offset = offset
+        self.helper_file = helper_file
 
     def __repr__(self):
         return "%s(mass=%r, K_aero=%r, frame_diag=%r, frame_h=%r, \
@@ -114,17 +115,13 @@ class Drone:
         self.state_true = State_XVQW()
         self.state_estimate = {}
         self.offset = p_drone.offset
+        self.helper_file = p_drone.helper_file
 
         # Estimators
         self._setup_estimators(p_estimators)
 
         # Making or using drones
         self.simulation_type = p_ranging.simulation_type
-
-
-
-
-
 
         # Measurements
         self.altitude_enable = p_drone.altitude_enable
@@ -147,25 +144,21 @@ class Drone:
         self.helper_drone_data = np.empty((4, 7))
         self.next_helper_drone_data = np.empty((4, 7))
 
-
         if self.simulation_type == 1:
-            for f in os.listdir("C:\\Users\\Kian Heus\\Documents\\GitHub\\uwb-simulator\\publication\\tdoa15"):
-                if "DronePosLog" in f:
+            for f in os.listdir(self.helper_file):
+                if "DronePosLog" in f and "DroneUser" not in f:
                     self.helper_readers.append(csv.DictReader(open(
-                        os.path.join("C:\\Users\\Kian Heus\\Documents\\GitHub\\uwb-simulator\\publication\\tdoa15", f), 'r',
-                                     newline=''), skipinitialspace=True))
+                        os.path.join(self.helper_file, f), 'r', newline=''), skipinitialspace=True))
 
-        #Set parameters for inter-drone ranging
+        # Set parameters for inter-drone ranging
         p_ranging_inter = p_ranging
         p_ranging_inter.N_helpers = len(self.helper_readers)
-        p_ranging_inter.interval_inter = 1/90
-        print("N_helpers", p_ranging_inter.N_helpers)
+        p_ranging_inter.interval_inter = 1 / 90
         self.uwb_gen_inter = UWBGenerator(p_ranging_inter)
         self.inter_history = [[] for _ in range(p_ranging_inter.N_helpers)]
-        self.inter_history_saver = [[[],[]] for _ in range(p_ranging_inter.N_helpers)]
+        self.inter_history_saver = [[[], []] for _ in range(p_ranging_inter.N_helpers)]
         self.inter_history_saver = np.ndarray((len(range(p_ranging_inter.N_helpers)), 2, 10000))
-        self.inter_history_counter = np.ndarray((4,1))
-
+        self.inter_history_counter = np.ndarray((4, 1))
 
         if self.logfile is None:
             # TODO: implement fully simulated drone
@@ -196,9 +189,9 @@ class Drone:
             self.t0 = self.log_data['timeTick']
 
             for index, reader in enumerate(self.helper_readers):
+                print(index)
                 self.helper_drone_data[index] = np.array(list(float(i) for i in next(reader).values()))
                 self.next_helper_drone_data[index] = np.array(list(float(i) for i in next(reader).values()))
-
 
     def __exit__(self, type, value, traceback):
         self._stop()
@@ -304,7 +297,7 @@ class Drone:
                 m = self._get_measurements_log((self.log_data))
                 self._step_estimators(m)
                 self.next_step = sim_time + 0.01
-                #print(self.state_true.x, self.state_estimate["ekf"].x)
+                # print(self.state_true.x, self.state_estimate["ekf"].x)
 
             else:
                 self._step_groundtruth_sim()
@@ -423,7 +416,6 @@ class Drone:
             if twr_inter is not None:
                 measurements.append(twr_inter)
 
-
         # Altitude
         if self.altitude_enable:
             alt = log_data['otZ'] * (1 + np.random.normal(0.0, 0.02))
@@ -432,7 +424,6 @@ class Drone:
             measurements.append(alt_measurement)
 
         return measurements
-
 
     def _step_estimators(self, measurements):
         """Simulate all enabled estimators
@@ -483,14 +474,12 @@ class Drone:
                 if key in log_data:
                     dist = log_data[key]
                     if dist != self.last_uwb[anchor_id]:
-                        #self.totalsauce += 1
+                        # self.totalsauce += 1
                         self.last_uwb[anchor_id] = dist
                         twr = TWR_meas(self.anchor_pos[anchor_id],
                                        anchor_id, dist, timestamp=self.time)
             else:  # Ranging source not Log
                 twr = self.uwb_gen.generate_twr(self.state_true.x, anchor_id, self.time)
-
-
 
         if twr is not None:
             twr.stdDev = self._get_meas_stdev_real(twr)
@@ -638,18 +627,18 @@ class Drone:
             stdDev = 0.2
         if len(self.inter_history[i]) > 10:
             self.inter_history[i].pop(0)
-        #if stdDev < 0.05:
+        # if stdDev < 0.05:
         #    print("Small stdDev, t =", self.time)
         #    stdDev = 0.05
 
         self.inter_history_saver[i, :, int(self.inter_history_counter[i])] = [self.time, stdDev]
         self.inter_history_counter[i] += 1
-        return(stdDev)
+        return (stdDev)
 
     def _get_inter_drone_meas(self, index):
         helper_pos = self.helper_drone_data[index]
         twr_inter = self.uwb_gen_inter.generate_twr_inter(self.state_true.x, helper_pos, index, self.time)
         if twr_inter is not None:
             twr_inter.stdDev = self._get_meas_stdv_inter(twr_inter, index)
-            #twr_inter.stdDev = 0.2
+            # twr_inter.stdDev = 0.2
         return twr_inter

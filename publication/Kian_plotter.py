@@ -9,7 +9,7 @@ import numpy as np
 import os
 
     
-DataPathBase = os.path.join("C:\\Users\\Kian Heus\\Documents\\GitHub\\uwb-simulator\\publication\\tdoa29")
+DataPathBase = os.path.join("C:\\Users\\Kian Heus\\Documents\\GitHub\\uwb-simulator\\publication\\tdoa40")
 for i in range(1):
     print("Plot number:", i)
     DataPath = os.path.join(DataPathBase, "DronePosLog" + str(i) + ".csv")
