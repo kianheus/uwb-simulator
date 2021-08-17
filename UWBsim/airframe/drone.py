@@ -141,8 +141,7 @@ class Drone:
         self.logfile = p_drone.logfile
 
         self.helper_readers = []
-        self.helper_drone_data = np.empty((4, 7))
-        self.next_helper_drone_data = np.empty((4, 7))
+
 
         if self.simulation_type == 1:
             for f in os.listdir(self.helper_file):
@@ -150,15 +149,19 @@ class Drone:
                     self.helper_readers.append(csv.DictReader(open(
                         os.path.join(self.helper_file, f), 'r', newline=''), skipinitialspace=True))
 
+        N_helpers = len(self.helper_readers)
+        self.helper_drone_data = np.empty((N_helpers, 7))
+        self.next_helper_drone_data = np.empty((N_helpers, 7))
+
         # Set parameters for inter-drone ranging
         p_ranging_inter = p_ranging
-        p_ranging_inter.N_helpers = len(self.helper_readers)
+        p_ranging_inter.N_helpers = N_helpers
         p_ranging_inter.interval_inter = 1 / 90
         self.uwb_gen_inter = UWBGenerator(p_ranging_inter)
         self.inter_history = [[] for _ in range(p_ranging_inter.N_helpers)]
         self.inter_history_saver = [[[], []] for _ in range(p_ranging_inter.N_helpers)]
         self.inter_history_saver = np.ndarray((len(range(p_ranging_inter.N_helpers)), 2, 10000))
-        self.inter_history_counter = np.ndarray((4, 1))
+        self.inter_history_counter = np.ndarray((N_helpers, 1))
 
         if self.logfile is None:
             # TODO: implement fully simulated drone
@@ -189,7 +192,6 @@ class Drone:
             self.t0 = self.log_data['timeTick']
 
             for index, reader in enumerate(self.helper_readers):
-                print(index)
                 self.helper_drone_data[index] = np.array(list(float(i) for i in next(reader).values()))
                 self.next_helper_drone_data[index] = np.array(list(float(i) for i in next(reader).values()))
 
@@ -286,7 +288,7 @@ class Drone:
                         self.next_data["otZ"] += self.offset[2]
                     except (StopIteration, TypeError, ValueError):
                         self.running = False
-                if sim_time > (self.next_helper_drone_data[0][0]):
+                if self.simulation_type == 1 and sim_time > (self.next_helper_drone_data[0][0]):
                     self.helper_drone_data = self.next_helper_drone_data
                     for index, reader in enumerate(self.helper_readers):
                         try:

@@ -23,8 +23,8 @@ from UWBsim.utils.uwb_ranging import RangingType, RangingSource
 from UWBsim.simulation import UWBSimulation, SimulationParams
 
 # Script settings
-N_helpers = 4
-Na = 4
+N_helpers = 8
+Na = 8
 mode = 'tdoa'
 data_folder = os.path.join(UWBsim.DATA_DIR)
 anchor_file = os.path.join(UWBsim.BASE_DIR, 'anchor_positions.yaml')
@@ -166,9 +166,25 @@ for f in os.listdir(data_folder):
         # params.estimators.mhe.alpha = mhe_alphas[idx]
 
         for helper in range(N_helpers):
-            params.drone.offset = [2 * np.cos((helper) * 2 * np.pi / (N_helpers)),
-                            2 * np.sin((helper) * 2 * np.pi / (N_helpers)), 0]
 
+            # Special case for 8 drones: where the grid is
+            # 0|1|2
+            # 3|*|4
+            # 5|6|7
+            if N_helpers == 8:
+                params.drone.offset = [0,0,0]
+                if helper <= 2:
+                    params.drone.offset[1] = 1
+                elif helper >= 5:
+                    params.drone.offset[1] = -1
+                if helper == 0 or helper == 3 or helper == 5:
+                    params.drone.offset[0] = -1
+                elif helper == 2 or helper == 4 or helper == 7:
+                    params.drone.offset[0] = 1
+
+            # General case, where helper drones form a circle around the protagonist
+            params.drone.offset = [1 * np.cos((helper) * 2 * np.pi / (N_helpers)),
+                            1 * np.sin((helper) * 2 * np.pi / (N_helpers)), 0]
 
             params.ranging.anchor_enable = [Na>0, Na>4, Na>1, Na>5,
                                             Na>2, Na>6, Na>3, Na>7]

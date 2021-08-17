@@ -22,9 +22,9 @@ from UWBsim.utils.uwb_ranging import RangingType, RangingSource
 from UWBsim.simulation import UWBSimulation, SimulationParams
 
 # Script settings
-N_helpers = 4
-Na = 4
-InputNr = 0
+N_helpers = 8
+Na = 8
+InputNr = 1
 
 runs_per_traj_file = 1
 mode = 'tdoa'
@@ -202,6 +202,7 @@ for folder in os.listdir(input_file):
             ekf_tot = np.sqrt(ekfX ** 2 + ekfY ** 2 + ekfZ ** 2)
 
             f_out = open(os.path.join(input_file, folder, "DroneUser_runs_data" + str(simulation_type)) + ".csv", "w")
+            
             f_out.write('{}, {}, {}, \
                 {:.5f}, {:.4f}, {:.4f}, {:.4f}, {}\n'.format(
                 folder, Na, run, ekf_tot, ekfX, ekfY, ekfZ, params.drone.logfile
