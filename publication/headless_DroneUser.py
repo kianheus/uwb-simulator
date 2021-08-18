@@ -21,12 +21,13 @@ from UWBsim.airframe.drone import Drone
 from UWBsim.utils.uwb_ranging import RangingType, RangingSource
 from UWBsim.simulation import UWBSimulation, SimulationParams
 
-# Script settings
-N_helpers = 8
-Na = 8
-InputNr = 1
+# Script settings SEE LINE 58
+#N_helpers = 4
+#Na = 4
+#InputNr = 0
+#simulation_type = 1
 
-runs_per_traj_file = 1
+runs_per_traj_file = 5
 mode = 'tdoa'
 data_folder = os.path.join(UWBsim.DATA_DIR)
 anchor_file = os.path.join(UWBsim.BASE_DIR, 'anchor_positions.yaml')
@@ -56,7 +57,7 @@ with open(anchor_file) as f:
         params.ranging.anchor_positions.append([pos['x'], pos['y'], pos['z']])
 
 params.ranging.source = RangingSource.LOG
-params.ranging.simulation_type = 1
+
 
 
 i = 0
@@ -67,7 +68,6 @@ while os.path.isdir(publication_folder_hip):
 output_file = os.path.join(publication_folder_hip, 'runs_data.csv'.format(mode))
 drone_log_file_directory = os.path.join(publication_folder_hip, "DronePosLog")
 
-input_file = os.path.join(publication_folder, "anchors_" + str(Na) + "_helpers_" + str(N_helpers) + "_run_" + str(InputNr))
 
 """
 # Save parameters for later reference
@@ -124,96 +124,112 @@ def data_callback(drone: Drone):
             ekf_error_sum2[2] += (z - drone.state_estimate['ekf'].x[2]) ** 2
 
 
-params.ranging.anchor_enable = [Na > 0, Na > 4, Na > 1, Na > 5,
-                                Na > 2, Na > 6, Na > 3, Na > 7]
-
-for folder in os.listdir(input_file):
-    print('Reading from: {}'.format(os.path.join(input_file, folder)))
-
-    print(os.path.join(data_folder, folder + ".csv"))
-    params.drone.logfile = os.path.join(data_folder, folder + ".csv")
-    params.drone.helper_file = os.path.join(input_file, folder)
-
-    for simulation_type in range(2):
-
-        params.ranging.simulation_type = simulation_type
-
-        for run in range(runs_per_traj_file):
 
 
-            # anchor_idx_en = random.sample(range(8), Na)
-            # for a_idx in range(Na):
-            #    params.ranging.anchor_enable[a_idx] = True
-            if simulation_type == 0:
-                params.name = folder + '_SOLO' + '_r' + str(run)
-            elif simulation_type == 1:
-                params.name = folder + '_h' + str(N_helpers) + '_r' + str(run)
-            # Reset error calculation
-            error_count = 0
-            # mhe_error_sum2[0] = 0
-            # mhe_error_sum2[1] = 0
-            # mhe_error_sum2[2] = 0
-            ekf_error_sum2[0] = 0
-            ekf_error_sum2[1] = 0
-            ekf_error_sum2[2] = 0
+for input_file in os.listdir(publication_folder):
+    if "anchors_" in input_file:
+        Na = int(input_file[8])
+        N_helpers = int(input_file[-7])
 
-            # Reset drone x array
-            drone_full_x_log = np.empty((60000, 7))
-            ###drone_full_x_log2 = np.empty((0,4))
+        if N_helpers == 0:
+            simulation_type = 0
+        else:
+            simulation_type = 1
 
-            # Run simulation
-            sim = UWBSimulation(params, NotImplemented, data_callback)
-            try:
-                sim.start_sim()
-                # mheX = np.sqrt(mhe_error_sum2[0]/error_count)
-                # mheY = np.sqrt(mhe_error_sum2[1]/error_count)
-                # mheZ = np.sqrt(mhe_error_sum2[2]/error_count)
-                ekfX = np.sqrt(ekf_error_sum2[0] / error_count)
-                ekfY = np.sqrt(ekf_error_sum2[1] / error_count)
-                ekfZ = np.sqrt(ekf_error_sum2[2] / error_count)
-            except AssertionError:
-                # One of the estimators failed, try both individually
+        params.ranging.anchor_enable = [Na > 0, Na > 4, Na > 1, Na > 5,
+                                        Na > 2, Na > 6, Na > 3, Na > 7]
 
-                # EKF only
-                params.estimators.mhe.enable = False
+        for folder in os.listdir(input_file):
+            print('Reading from: {}'.format(os.path.join(input_file, folder)))
+
+            print(os.path.join(data_folder, folder + ".csv"))
+            params.drone.logfile = os.path.join(data_folder, folder + ".csv")
+            params.drone.helper_file = os.path.join(input_file, folder)
+
+
+            params.ranging.simulation_type = simulation_type
+
+            f_out = open(os.path.join(input_file, folder, "DroneUser_runs_data" + str(simulation_type)) + ".csv", "w")
+            f_out.write('log, anchors, run, ekf_tot, ekfX, \
+                        ekfY, ekfZ, logfile\n')
+
+
+            for run in range(runs_per_traj_file):
+
+
+                # anchor_idx_en = random.sample(range(8), Na)
+                # for a_idx in range(Na):
+                #    params.ranging.anchor_enable[a_idx] = True
+                if simulation_type == 0:
+                    params.name = folder + '_SOLO' + '_r' + str(run)
+                elif simulation_type == 1:
+                    params.name = folder + '_h' + str(N_helpers) + '_r' + str(run)
+                # Reset error calculation
                 error_count = 0
+                # mhe_error_sum2[0] = 0
+                # mhe_error_sum2[1] = 0
+                # mhe_error_sum2[2] = 0
                 ekf_error_sum2[0] = 0
                 ekf_error_sum2[1] = 0
                 ekf_error_sum2[2] = 0
+
+                # Reset drone x array
+                drone_full_x_log = np.empty((60000, 7))
+                ###drone_full_x_log2 = np.empty((0,4))
+
+                # Run simulation
+                sim = UWBSimulation(params, NotImplemented, data_callback)
                 try:
-                    sim = UWBSimulation(params, NotImplemented,
-                                        data_callback)
                     sim.start_sim()
+                    # mheX = np.sqrt(mhe_error_sum2[0]/error_count)
+                    # mheY = np.sqrt(mhe_error_sum2[1]/error_count)
+                    # mheZ = np.sqrt(mhe_error_sum2[2]/error_count)
                     ekfX = np.sqrt(ekf_error_sum2[0] / error_count)
                     ekfY = np.sqrt(ekf_error_sum2[1] / error_count)
                     ekfZ = np.sqrt(ekf_error_sum2[2] / error_count)
-
                 except AssertionError:
-                    ekfX = np.inf
-                    ekfY = np.inf
-                    ekfZ = np.inf
+                    # One of the estimators failed, try both individually
 
-                finally:
-                    # params.estimators.mhe.enable = True
-                    pass
+                    # EKF only
+                    params.estimators.mhe.enable = False
+                    error_count = 0
+                    ekf_error_sum2[0] = 0
+                    ekf_error_sum2[1] = 0
+                    ekf_error_sum2[2] = 0
+                    try:
+                        sim = UWBSimulation(params, NotImplemented,
+                                            data_callback)
+                        sim.start_sim()
+                        ekfX = np.sqrt(ekf_error_sum2[0] / error_count)
+                        ekfY = np.sqrt(ekf_error_sum2[1] / error_count)
+                        ekfZ = np.sqrt(ekf_error_sum2[2] / error_count)
 
-            # Calculate performance and write to output file
-            # mhe_tot = np.sqrt(mheX**2 + mheY**2 + mheZ**2)
-            ekf_tot = np.sqrt(ekfX ** 2 + ekfY ** 2 + ekfZ ** 2)
+                    except AssertionError:
+                        ekfX = np.inf
+                        ekfY = np.inf
+                        ekfZ = np.inf
 
-            f_out = open(os.path.join(input_file, folder, "DroneUser_runs_data" + str(simulation_type)) + ".csv", "w")
-            
-            f_out.write('{}, {}, {}, \
-                {:.5f}, {:.4f}, {:.4f}, {:.4f}, {}\n'.format(
-                folder, Na, run, ekf_tot, ekfX, ekfY, ekfZ, params.drone.logfile
-            ))
+                    finally:
+                        # params.estimators.mhe.enable = True
+                        pass
+
+                # Calculate performance and write to output file
+                # mhe_tot = np.sqrt(mheX**2 + mheY**2 + mheZ**2)
+                ekf_tot = np.sqrt(ekfX ** 2 + ekfY ** 2 + ekfZ ** 2)
+
+
+
+                f_out.write('{}, {}, {}, \
+                    {:.5f}, {:.4f}, {:.4f}, {:.4f}, {}\n'.format(
+                    folder, Na, run, ekf_tot, ekfX, ekfY, ekfZ, os.path.join(input_file, folder)
+                ))
+
+                drone_full_x_log = drone_full_x_log[~np.all(drone_full_x_log == 0, axis=1)]
+
+                np.savetxt(os.path.join(input_file, folder, "DroneUser_DronePosLog_SimType_" + str(simulation_type) + "_r" + str(run) + ".csv"), drone_full_x_log,
+                           header="time, estX, estY, estZ, trueX, trueY, trueZ", comments="", delimiter=",")
+                ###np.save(os.path.join("C:\\Users\\Kian Heus\\PycharmProjects\\numpytester\\savehere",
+                ###"x_array" + str(Na) + str(run) + "BOO"), drone_full_x_log2)
+
+                print("RUNTIME:", time.time() - start_time)
             f_out.close()
-            drone_full_x_log = drone_full_x_log[~np.all(drone_full_x_log == 0, axis=1)]
-
-            np.savetxt(os.path.join(input_file, folder, "DroneUser_DronePosLog_SimType_" + str(simulation_type) + "_r" + str(run) + ".csv"), drone_full_x_log,
-                       header="time, estX, estY, estZ, trueX, trueY, trueZ", comments="", delimiter=",")
-            ###np.save(os.path.join("C:\\Users\\Kian Heus\\PycharmProjects\\numpytester\\savehere",
-            ###"x_array" + str(Na) + str(run) + "BOO"), drone_full_x_log2)
-
-            print("RUNTIME:", time.time() - start_time)
-
