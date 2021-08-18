@@ -23,7 +23,7 @@ from UWBsim.utils.uwb_ranging import RangingType, RangingSource
 from UWBsim.simulation import UWBSimulation, SimulationParams
 
 # Script settings
-N_helpers = 5
+N_helpers = 8
 #Na = 5
 mode = 'tdoa'
 data_folder = os.path.join(UWBsim.DATA_DIR)
@@ -178,11 +178,11 @@ for Na in range(2, 4):
                         params.drone.offset = [0,0,0]
                         if helper <= 2:
                             params.drone.offset[1] = 1
-                        elif helper >= 5:
+                        elif helper >= 4 and helper <= 6:
                             params.drone.offset[1] = -1
-                        if helper == 0 or helper == 3 or helper == 5:
+                        if helper == 0 or helper == 6 or helper == 7:
                             params.drone.offset[0] = -1
-                        elif helper == 2 or helper == 4 or helper == 7:
+                        elif helper == 2 or helper == 3 or helper == 4:
                             params.drone.offset[0] = 1
                     elif N_helpers == 5:
                         params.drone.offset = [0, 0, 0]
