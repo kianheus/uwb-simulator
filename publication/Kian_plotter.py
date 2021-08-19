@@ -55,57 +55,75 @@ def TrajectoryPlotter(DataPath, ax1, ax2, ax3, ax4, fig):
 def ErrorPlotter():
     pass
 
+N_anchorsArray = np.array([]) # Array containing anchor numbers
+ErrorArray = np.ndarray((10,7,2)) # Array containing helpers error for each N_anchors
+print(ErrorArray.ndim)
 
-for folder in os.listdir(input_file):
 
-    if "anchors_" in folder:
+for folder_index, folder in enumerate(os.listdir(input_file)):
+
+
+    if "anchors_" in folder and plot_helpers and "helpers_8" in folder:
         Na = int(folder[8])
+        N_helpers = int(folder[-7])
+        HelpersErrorSum = 0
+        HelpersElementsSum = 0
 
-        if plot_protagonist and "helpers_0" in folder:
+        for trajectory in os.listdir(os.path.join(input_file, folder)):
+            ErrorReader = csv.DictReader(
+                open(os.path.join(input_file, folder, trajectory, "runs_data.csv"), "r", newline=""),
+                skipinitialspace=True)
+            ErrorCounterArray = np.array([])
 
-            ProtagonistErrorSum = 0
-            ProtagonistElementsSum = 0
+            for line in ErrorReader:
+                ErrorCounterArray = np.append(ErrorCounterArray, float(line["ekf_tot"]))
 
-            for trajectory in os.listdir(os.path.join(input_file, folder)):
+            HelpersErrorSum += sum(ErrorCounterArray)
+            HelpersElementsSum += ErrorCounterArray.size
+        ErrorArray[0, Na - 2, :] = [Na, HelpersErrorSum / HelpersElementsSum]
 
-                # Average all protagonist errors
+    if "anchors_" in folder and plot_protagonist:
+        Na = int(folder[8])
+        N_helpers = int(folder[-7])
+        print(N_helpers)
 
+        ProtagonistErrorSum = 0
+        ProtagonistElementsSum = 0
+
+        for trajectory in os.listdir(os.path.join(input_file, folder)):
+
+            # Average all protagonist errors
+            try:
                 ErrorReader = csv.DictReader(
                     open(os.path.join(input_file, folder, trajectory, "DroneUser_runs_data0.csv"), "r", newline=""),
-                    skipinitialspace=True)
-                ErrorArray = np.array([])
-
-                for line in ErrorReader:
-                    ErrorArray = np.append(ErrorArray, float(line["ekf_tot"]))
-
-                ProtagonistErrorSum += sum(ErrorArray)
-                ProtagonistElementsSum += ErrorArray.size
-                # fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
-            print("folder:", folder, "trajectory:", trajectory)
-            print("ProtagonistErrorSum:", ProtagonistErrorSum, "ProtagonistElementsSum:", ProtagonistElementsSum,
-                  "average error:", ProtagonistErrorSum / ProtagonistElementsSum)
-
-        elif plot_helpers and "helpers_8" in folder:
-
-            HelpersErrorSum = 0
-            HelpersElementsSum = 0
-
-            for trajectory in os.listdir(os.path.join(input_file, folder)):
+                        skipinitialspace=True)
+            except FileNotFoundError:
                 ErrorReader = csv.DictReader(
-                    open(os.path.join(input_file, folder, trajectory, "runs_data.csv"), "r", newline=""),
+                    open(os.path.join(input_file, folder, trajectory, "DroneUser_runs_data1.csv"), "r", newline=""),
                     skipinitialspace=True)
-                ErrorArray = np.array([])
 
-                for line in ErrorReader:
-                    ErrorArray = np.append(ErrorArray, float(line["ekf_tot"]))
+            ErrorCounterArray = np.array([])
 
-                HelpersErrorSum += sum(ErrorArray)
-                HelpersElementsSum += ErrorArray.size
+            for line in ErrorReader:
+                ErrorCounterArray = np.append(ErrorCounterArray, float(line["ekf_tot"]))
 
-            print("folder:", folder, "trajectory:", trajectory)
-            print("HelpersErrorSum:", HelpersErrorSum, "HelpersElementsSum:", HelpersElementsSum,
-                  "average error:", HelpersErrorSum / HelpersElementsSum)
+            ProtagonistErrorSum += sum(ErrorCounterArray)
+            ProtagonistElementsSum += ErrorCounterArray.size
 
+        ErrorArray[N_helpers+1,Na-2,:] = [Na, ProtagonistErrorSum/ProtagonistElementsSum]
+
+
+
+
+
+print(ErrorArray)
+plt.plot(ErrorArray[0,:,0], ErrorArray[0,:,1], label="HelperFlight")
+for i in range(len(ErrorArray[1:,0,0])):
+    plt.plot(ErrorArray[i+1,:,0], ErrorArray[i+1,:,1], label="Nh: "+ str(i))
+plt.xlabel("N_anchors")
+plt.ylabel("Error")
+plt.legend()
+plt.show()
 """   
 print("HI")
                 for log in os.listdir(os.path.join(input_file, folder)):
