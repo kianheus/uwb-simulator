@@ -37,7 +37,7 @@ class RangingParams(yaml.YAMLObject):
     yaml_tag = u'!RangingParams'
     def __init__(self, source=int(RangingSource.GENERATE_HT_CAUCHY), rtype=int(RangingType.TWR), 
                     anchor_positions=[[0.0,0.0,0.0]], anchor_enable=[False], 
-                    interval=0.01, gauss_sigma=0.3, htc_gamma=0.3, htc_ratio=1.0,
+                    interval=0.01, gauss_sigma=0.3, htc_gamma=0.6, htc_ratio=1.0,
                     htg_mu=0.1, htg_lambda=3.5, htg_k=2, htg_scale=1, outlier_chance=0.0, simulation_type = 0, N_helpers = 0, interval_inter = 0.01):
         """ Initializes RangingParams
 
@@ -178,7 +178,6 @@ class UWBGenerator:
     def generate_tdoa(self, position, anchor0_id, anchor1_id, time):
         if (self.anchor_enable[anchor0_id]) and (self.anchor_enable[anchor1_id]) and (time >= self.next_meas[anchor0_id][anchor1_id]):
             self.next_meas[anchor0_id][anchor1_id] += self.interval + np.random.uniform(-self.interval_diff, self.interval_diff)
-            
             a0 = self.anchor_position[anchor0_id]
             a1 = self.anchor_position[anchor1_id]
             

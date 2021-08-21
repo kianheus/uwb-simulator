@@ -64,6 +64,7 @@ params.ranging.simulation_type = 0
 # mhe_error_sum2 = np.array([0.0,0.0,0.0])
 ekf_error_sum2 = np.array([0.0, 0.0, 0.0])
 error_count = 0
+ekf_error_count = 0
 drone_full_x_log = np.empty((60000, 7))
 
 
@@ -78,7 +79,7 @@ def data_callback(drone: Drone):
     and EKF in the scripts global variables, so that the performance
     can be calculated at the end of the simulation.
     """
-    global error_count, ekf_error_sum2, drone_full_x_log  ###, drone_full_x_log2#, mhe_error_sum2
+    global error_count, ekf_error_count, ekf_error_sum2, drone_full_x_log  ###, drone_full_x_log2#, mhe_error_sum2
     # wait a moment before starting error calculation (calibration)
     if drone.time > 1.0:
         x = drone.state_true.x[0]
@@ -91,20 +92,20 @@ def data_callback(drone: Drone):
 
         error_count += 1
 
-        if drone.estimator_isEnabled['ekf']:
+        if drone.estimator_isEnabled['ekf'] and z > 0.1:
+            ekf_error_count += 1
             ekf_error_sum2[0] += (x - drone.state_estimate['ekf'].x[0]) ** 2
             ekf_error_sum2[1] += (y - drone.state_estimate['ekf'].x[1]) ** 2
             ekf_error_sum2[2] += (z - drone.state_estimate['ekf'].x[2]) ** 2
 
 
-for Na in range(2, 4):
+for Na in range(2, 9):
     for N_helpers in range(8,9):
-        # iterate through all logs
-        traj_names = []
 
         i = 0
         publication_folder_main = os.path.join(publication_folder, "anchors_" + str(Na) + "_helpers_" + str(
             N_helpers) + "_run_" + str(i))
+
         while os.path.isdir(publication_folder_main):
             publication_folder_main = os.path.join(publication_folder, "anchors_" + str(Na) + "_helpers_" + str(
             N_helpers) + "_run_" + str(i))
@@ -118,24 +119,17 @@ for Na in range(2, 4):
             elif f.startswith('.'):
                 continue
 
+
+
             # Create human readable name for trajectories
             name = f.split('.')[0]
-            name = name.split('_')[-2]
+            name = name.split('_')[-2] + "_" + name.split("_")[-1]
             if 'twr' in f:
                 name = 'twr_' + name
             elif 'tdoa' in f:
                 name = 'tdoa_' + name
 
-            index = 0
 
-            while True:
-                tmp = name + '_' + str(index)
-                if tmp in traj_names:
-                    index += 1
-                else:
-                    name = tmp
-                    traj_names.append(name)
-                    break
 
             # Set Logfile for run
             params.drone.logfile = os.path.join(data_folder, f)
@@ -148,7 +142,6 @@ for Na in range(2, 4):
             publication_folder_shape = os.path.join(publication_folder_main, name)
             output_file = os.path.join(publication_folder_shape, 'runs_data.csv'.format(mode))
             drone_log_file_directory = os.path.join(publication_folder_shape, "DronePosLog")
-
             if not os.path.isdir(publication_folder_main):
                 os.makedirs(publication_folder_main)
             os.makedirs(publication_folder_shape)
@@ -162,7 +155,7 @@ for Na in range(2, 4):
                 print('Writing to: {}'.format(output_file))
                 # Write output file header
                 f_out.write('log, anchors, run, ekf_tot, ekfX, \
-                    ekfY, ekfZ, logfile\n')
+                ekfY, ekfZ, logfile\n')
 
 
                 print("Na =", Na, "n_anchors =", n_anchors)
@@ -196,9 +189,8 @@ for Na in range(2, 4):
                     else:
                         params.drone.offset = [1 * np.cos((helper) * 2 * np.pi / (N_helpers)),
                                                 1 * np.sin((helper) * 2 * np.pi / (N_helpers)), 0]
-                    print("Drone offset:", params.drone.offset)
                     params.ranging.anchor_enable = [Na>0, Na>4, Na>1, Na>5,
-                                                    Na>2, Na>6, Na>3, Na>7]
+                                                    Na>6, Na>2, Na>7, Na>3]
 
                     # anchor_idx_en = random.sample(range(8), Na)
                     # for a_idx in range(Na):
@@ -206,6 +198,7 @@ for Na in range(2, 4):
                     params.name = name + '_a' + str(Na) + '_r' + str(helper)
                     # Reset error calculation
                     error_count = 0
+                    ekf_error_count = 0
                     ekf_error_sum2[0] = 0
                     ekf_error_sum2[1] = 0
                     ekf_error_sum2[2] = 0
@@ -217,15 +210,16 @@ for Na in range(2, 4):
                     sim = UWBSimulation(params, NotImplemented, data_callback)
                     try:
                         sim.start_sim()
-                        ekfX = np.sqrt(ekf_error_sum2[0] / error_count)
-                        ekfY = np.sqrt(ekf_error_sum2[1] / error_count)
-                        ekfZ = np.sqrt(ekf_error_sum2[2] / error_count)
+                        ekfX = np.sqrt(ekf_error_sum2[0] / ekf_error_count)
+                        ekfY = np.sqrt(ekf_error_sum2[1] / ekf_error_count)
+                        ekfZ = np.sqrt(ekf_error_sum2[2] / ekf_error_count)
                     except AssertionError:
                         # One of the estimators failed, try both individually
 
                         # EKF only
                         params.estimators.mhe.enable = False
-                        error_count = 0
+                        error_count
+                        ekf_error_count = 0
                         ekf_error_sum2[0] = 0
                         ekf_error_sum2[1] = 0
                         ekf_error_sum2[2] = 0
@@ -233,9 +227,9 @@ for Na in range(2, 4):
                             sim = UWBSimulation(params, NotImplemented,
                                                 data_callback)
                             sim.start_sim()
-                            ekfX = np.sqrt(ekf_error_sum2[0] / error_count)
-                            ekfY = np.sqrt(ekf_error_sum2[1] / error_count)
-                            ekfZ = np.sqrt(ekf_error_sum2[2] / error_count)
+                            ekfX = np.sqrt(ekf_error_sum2[0] / ekf_error_count)
+                            ekfY = np.sqrt(ekf_error_sum2[1] / ekf_error_count)
+                            ekfZ = np.sqrt(ekf_error_sum2[2] / ekf_error_count)
 
                         except AssertionError:
                             ekfX = np.inf
@@ -260,7 +254,7 @@ for Na in range(2, 4):
                     np.savetxt(os.path.join(drone_log_file_directory + str(helper) + ".csv"), drone_full_x_log,
                                header="time, estX, estY, estZ, trueX, trueY, trueZ", comments="", delimiter=",")
 
-                    print("RUNTIME:", time.time() - start_time)
+                print("RUNTIME:", time.time() - start_time)
 
 
 

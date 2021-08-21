@@ -22,8 +22,8 @@ from UWBsim.utils.uwb_ranging import RangingType, RangingSource
 from UWBsim.simulation import UWBSimulation, SimulationParams
 
 # Script settings
-runs_per_traj_file = 10
-mode = 'twr'
+runs_per_traj_file = 5
+mode = 'tdoa'
 data_folder = os.path.join(UWBsim.DATA_DIR)
 anchor_file = os.path.join(UWBsim.BASE_DIR, 'anchor_positions.yaml')
 publication_folder = os.path.dirname(os.path.realpath(__file__))
@@ -258,8 +258,8 @@ with open(output_file, 'w') as f_out:
                     {:.5f}, {:.4f}, {:.4f}, {:.4f}, {}\n'.format(
                     name, Na, run, ekf_tot, ekfX, ekfY, ekfZ, params.drone.logfile
                 ))
-
-                np.savetxt(os.path.join(drone_log_file_directory + str(run) + ".csv"), drone_full_x_log,
+                drone_full_x_log = drone_full_x_log[~np.all(drone_full_x_log == 0, axis=1)]
+                np.savetxt(os.path.join(drone_log_file_directory + f.split("_")[1] + str(run) + ".csv"), drone_full_x_log,
                            header="time, estX, estY, estZ, trueX, trueY, trueZ", comments="", delimiter=",")
                 ###np.save(os.path.join("C:\\Users\\Kian Heus\\PycharmProjects\\numpytester\\savehere",
                 ###"x_array" + str(Na) + str(run) + "BOO"), drone_full_x_log2)

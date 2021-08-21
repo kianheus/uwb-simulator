@@ -56,14 +56,14 @@ def ErrorPlotter():
     pass
 
 N_anchorsArray = np.array([]) # Array containing anchor numbers
-ErrorArray = np.ndarray((10,7,2)) # Array containing helpers error for each N_anchors
+ErrorArray = np.ndarray((10,7,3)) # Array containing helpers error for each N_anchors
 print(ErrorArray.ndim)
 
 
 for folder_index, folder in enumerate(os.listdir(input_file)):
 
 
-    if "anchors_" in folder and plot_helpers and "helpers_8" in folder:
+    if "_run_0" in folder and plot_helpers and "helpers_8" in folder:
         Na = int(folder[8])
         N_helpers = int(folder[-7])
         HelpersErrorSum = 0
@@ -76,13 +76,18 @@ for folder_index, folder in enumerate(os.listdir(input_file)):
             ErrorCounterArray = np.array([])
 
             for line in ErrorReader:
-                ErrorCounterArray = np.append(ErrorCounterArray, float(line["ekf_tot"]))
+                if "inf" not in line["ekf_tot"]:
+                    ErrorCounterArray = np.append(ErrorCounterArray, float(line["ekf_tot"]))
 
             HelpersErrorSum += sum(ErrorCounterArray)
             HelpersElementsSum += ErrorCounterArray.size
-        ErrorArray[0, Na - 2, :] = [Na, HelpersErrorSum / HelpersElementsSum]
+        if ProtagonistElementsSum == 0:
+            ErrorArray[0, Na - 2, :] = [Na, np.inf, N_helpers]
+        else:
+            ErrorArray[0, Na - 2, :] = [Na, ProtagonistErrorSum / ProtagonistElementsSum, N_helpers]
 
-    if "anchors_" in folder and plot_protagonist:
+
+    if "_run_0" in folder and plot_protagonist and int(folder[8]) <= 4:
         Na = int(folder[8])
         N_helpers = int(folder[-7])
         print(N_helpers)
@@ -105,24 +110,29 @@ for folder_index, folder in enumerate(os.listdir(input_file)):
             ErrorCounterArray = np.array([])
 
             for line in ErrorReader:
-                ErrorCounterArray = np.append(ErrorCounterArray, float(line["ekf_tot"]))
+                if "inf" not in line["ekf_tot"]:
+                    ErrorCounterArray = np.append(ErrorCounterArray, float(line["ekf_tot"]))
 
             ProtagonistErrorSum += sum(ErrorCounterArray)
             ProtagonistElementsSum += ErrorCounterArray.size
-
-        ErrorArray[N_helpers+1,Na-2,:] = [Na, ProtagonistErrorSum/ProtagonistElementsSum]
+        if ProtagonistElementsSum == 0:
+            ErrorArray[N_helpers + 1, Na - 2, :] = [Na, np.inf, N_helpers]
+        else:
+            ErrorArray[N_helpers+1,Na-2,:] = [Na, ProtagonistErrorSum/ProtagonistElementsSum, N_helpers]
 
 
 
 
 
 print(ErrorArray)
-plt.plot(ErrorArray[0,:,0], ErrorArray[0,:,1], label="HelperFlight")
-for i in range(len(ErrorArray[1:,0,0])):
-    plt.plot(ErrorArray[i+1,:,0], ErrorArray[i+1,:,1], label="Nh: "+ str(i))
+
+plt.scatter(ErrorArray[0,0:3,0], ErrorArray[0,0:3,1], label="HelperFlight")
+for i in range(len(ErrorArray[1:,:,0])):
+    plt.scatter(ErrorArray[i+1,0:3,0], ErrorArray[i+1,0:3,1], label="Nh: "+ str(i))
 plt.xlabel("N_anchors")
 plt.ylabel("Error")
 plt.legend()
+
 plt.show()
 """   
 print("HI")

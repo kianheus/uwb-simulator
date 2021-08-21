@@ -80,6 +80,7 @@ with open(settings_file, 'w') as f:
 # mhe_error_sum2 = np.array([0.0,0.0,0.0])
 ekf_error_sum2 = np.array([0.0, 0.0, 0.0])
 error_count = 0
+ekf_error_count = 0
 drone_full_x_log = np.empty((60000, 7))
 
 
@@ -94,7 +95,7 @@ def data_callback(drone: Drone):
     and EKF in the scripts global variables, so that the performance
     can be calculated at the end of the simulation. 
     """
-    global error_count, ekf_error_sum2, drone_full_x_log  ###, drone_full_x_log2#, mhe_error_sum2
+    global error_count, ekf_error_count, ekf_error_sum2, drone_full_x_log  ###, drone_full_x_log2#, mhe_error_sum2
     # wait a moment before starting error calculation (calibration)
     if drone.time > 1.0:
         x = drone.state_true.x[0]
@@ -118,7 +119,8 @@ def data_callback(drone: Drone):
             mhe_error_sum2[1] += (y - drone.state_estimate['mhe'].x[1])**2
             mhe_error_sum2[2] += (z - drone.state_estimate['mhe'].x[2])**2
         """
-        if drone.estimator_isEnabled['ekf']:
+        if drone.estimator_isEnabled['ekf'] and z > 0.1:
+            ekf_error_count += 1
             ekf_error_sum2[0] += (x - drone.state_estimate['ekf'].x[0]) ** 2
             ekf_error_sum2[1] += (y - drone.state_estimate['ekf'].x[1]) ** 2
             ekf_error_sum2[2] += (z - drone.state_estimate['ekf'].x[2]) ** 2
@@ -137,7 +139,7 @@ for input_file in os.listdir(publication_folder):
             simulation_type = 1
 
         params.ranging.anchor_enable = [Na > 0, Na > 4, Na > 1, Na > 5,
-                                        Na > 2, Na > 6, Na > 3, Na > 7]
+                                        Na > 6, Na > 2, Na > 7, Na > 3]
 
         for folder in os.listdir(input_file):
             print('Reading from: {}'.format(os.path.join(input_file, folder)))
@@ -150,8 +152,7 @@ for input_file in os.listdir(publication_folder):
             params.ranging.simulation_type = simulation_type
 
             f_out = open(os.path.join(input_file, folder, "DroneUser_runs_data" + str(simulation_type)) + ".csv", "w")
-            f_out.write('log, anchors, run, ekf_tot, ekfX, \
-                        ekfY, ekfZ, logfile\n')
+            f_out.write('log, anchors, run, ekf_tot, ekfX, ekfY, ekfZ, logfile\n')
 
 
             for run in range(runs_per_traj_file):
@@ -220,7 +221,7 @@ for input_file in os.listdir(publication_folder):
 
 
                 f_out.write('{}, {}, {}, \
-                    {:.5f}, {:.4f}, {:.4f}, {:.4f}, {}\n'.format(
+                {:.5f}, {:.4f}, {:.4f}, {:.4f}, {}\n'.format(
                     folder, Na, run, ekf_tot, ekfX, ekfY, ekfZ, os.path.join(input_file, folder)
                 ))
 

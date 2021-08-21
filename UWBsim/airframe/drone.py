@@ -161,7 +161,7 @@ class Drone:
         self.inter_history = [[] for _ in range(p_ranging_inter.N_helpers)]
         self.inter_history_saver = [[[], []] for _ in range(p_ranging_inter.N_helpers)]
         self.inter_history_saver = np.ndarray((len(range(p_ranging_inter.N_helpers)), 2, 10000))
-        self.inter_history_counter = np.ndarray((N_helpers, 1))
+        self.inter_history_counter = np.zeros((N_helpers, 1))
 
         if self.logfile is None:
             # TODO: implement fully simulated drone
@@ -632,7 +632,6 @@ class Drone:
         # if stdDev < 0.05:
         #    print("Small stdDev, t =", self.time)
         #    stdDev = 0.05
-
         self.inter_history_saver[i, :, int(self.inter_history_counter[i])] = [self.time, stdDev]
         self.inter_history_counter[i] += 1
         return (stdDev)
